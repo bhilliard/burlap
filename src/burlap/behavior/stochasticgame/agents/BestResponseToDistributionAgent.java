@@ -151,7 +151,7 @@ public class BestResponseToDistributionAgent extends Agent {
 
 		Map<String,Policy> policyMap = new HashMap<String,Policy>();
 		for(String otherAgentName : allOtherAgentPolicies.keySet()){
-			System.out.println("Other Agent Name: "+otherAgentName);
+			//System.out.println("Other Agent Name: "+otherAgentName);
 			Policy newPolicy = new ExpectedPolicyWrapper(allOtherAgentPolicies.get(otherAgentName),
 					distributionOverAllOtherAgentPolicies.get(otherAgentName));
 
@@ -249,11 +249,11 @@ public class BestResponseToDistributionAgent extends Agent {
 		}
 
 
-		if(planner ==null){
+		if(planner == null){
 			System.out.println("creating planner");
-			planner = new ValueIteration(saDomain, rf, world.getTF(), 0.99, hashFactory, 0.001,100);
+			planner = new ValueIteration(saDomain, rf, world.getTF(), 0.99, hashFactory, 0.001,1000000);
 		}
-
+		
 		System.out.println("VI starting");
 		planner.planFromState(world.getCurrentWorldState());
 		System.out.println("VI done planning");
@@ -367,7 +367,7 @@ public class BestResponseToDistributionAgent extends Agent {
 			//OTHERFIRST=false;
 		//}
 
-		Visualizer v = GGVisualizer.getVisualizer(6, 6);
+		Visualizer v = GGVisualizer.getVisualizer(6,6);
 		
 		GameSequenceVisualizer gsv = new GameSequenceVisualizer(v,d,gas);
 		
