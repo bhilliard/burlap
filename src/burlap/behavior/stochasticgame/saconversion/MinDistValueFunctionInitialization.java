@@ -13,12 +13,14 @@ import burlap.oomdp.core.State;
 public class MinDistValueFunctionInitialization implements
 ValueFunctionInitialization {
 
-	Domain ggDomain; 
-	String agentName;
-	public MinDistValueFunctionInitialization(Domain ggDomain, String agentName){
+	private Domain ggDomain; 
+	private String agentName;
+	private double goalReward;
+	
+	public MinDistValueFunctionInitialization(Domain ggDomain, String agentName, double goalReward){
 		this.ggDomain = ggDomain;
 		this.agentName = agentName;
-
+		this.goalReward = goalReward;
 	}
 
 	@Override
@@ -26,10 +28,10 @@ ValueFunctionInitialization {
 
 		String an = GridWorldDomain.CLASSAGENT;
 
+		//find what agent we are
 		int agentNum = 0;
 		if(agentName.contains("1")){
 			agentNum = 1;
-			System.out.println("____________________________________AgentNum: "+agentNum);
 		}
 
 		ObjectInstance agent = null;
@@ -40,43 +42,38 @@ ValueFunctionInitialization {
 			}
 		}
 
+		double closestMDist=Double.MAX_VALUE;
 		if(agent != null){
-			//get agent position
+			//get agent x,y position
 			int ax = agent.getIntValForAttribute(GridWorldDomain.ATTX);
-
 			int ay = agent.getIntValForAttribute(GridWorldDomain.ATTY);
 
 			int lx;
 			int ly;
-			double closestMDist=Double.MAX_VALUE;
+			
 			double mdist;
 			List<ObjectInstance> objects = s.getObjectsOfClass(GridGame.CLASSGOAL);
-			System.out.println("Num goals" +objects.size());
+			//System.out.println("Num goals" +objects.size());
+			
+			//loop over all goal objects and find the closest to the agent
 			for(ObjectInstance oi : objects){
-
 
 				//System.out.println("AgentNum: "+agentNum+" GT: "+oi.getIntValForAttribute("gt"));
 				if(oi.getIntValForAttribute("gt")==agentNum+1){
-
 
 					lx = oi.getIntValForAttribute(GridWorldDomain.ATTX);
 					ly = oi.getIntValForAttribute(GridWorldDomain.ATTY);
 
 					mdist = Math.abs(ax-lx) + Math.abs(ay-ly);
-					System.out.println("Agent "+agentNum+"'s goal: "+lx+", "+ly+" agent at: "+ax+", "+ay+" mdist: "+mdist);
+					//System.out.println("Agent "+agentNum+"'s goal: "+lx+", "+ly+" agent at: "+ax+", "+ay+" mdist: "+mdist);
 					if(mdist<closestMDist){
 						closestMDist = mdist;
 					}
 				}
-
-
-
 			}
-
-			return -1.0*closestMDist;
-		}else{
-			return Double.NEGATIVE_INFINITY;
+			
 		}
+		return goalReward-1.0*closestMDist;
 	}
 
 	@Override

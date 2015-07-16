@@ -63,9 +63,10 @@ import burlap.oomdp.visualizer.Visualizer;
  */
 public class BestResponseToDistributionAgent extends Agent {
 
-	private boolean isFirstDay = false;
-	private boolean CHOOSE = false;
-	private boolean run_value_itteration = false;
+
+	private boolean CHOOSE = false; //setting this to true means that an agent type will be chosen randomly???
+									// This really doesn't make sense, so don't set to true
+	
 
 	protected SADomain singleAgentDomain;
 	protected Map<String, Policy> otherAgentPolicies;
@@ -73,24 +74,30 @@ public class BestResponseToDistributionAgent extends Agent {
 	protected Map<String, Map<Integer,Double>> distributionOverAllOtherAgentPolicies;
 
 	protected OOMDPPlanner planner = null;
+	private boolean isFirstDay = false;
 	/**
 	 * The policy this agent follows
 	 */
 	protected Policy									policy;
 
 	protected StateHashFactory							hashFactory;
+	
+	private double 										goalReward;
+	
+	private boolean 									runValueIteration;
 
 
 	/**
 	 * The Agent class is
 	 */
 	public BestResponseToDistributionAgent(SGDomain domain, Map<String, Map<Integer,Policy>> allOtherAgentPolicies, 
-			Map<String, Map<Integer,Double>> distributionOverAllOtherAgentPolicies, StateHashFactory hashFactory) {
+			Map<String, Map<Integer,Double>> distributionOverAllOtherAgentPolicies, StateHashFactory hashFactory, double goalReward) {
 
 		this.allOtherAgentPolicies = allOtherAgentPolicies;
 		this.distributionOverAllOtherAgentPolicies = distributionOverAllOtherAgentPolicies;
 		this.hashFactory = hashFactory;
 		this.domain = domain;
+		this.goalReward = goalReward;
 		if(CHOOSE){
 			otherAgentPolicies = chooseOtherAgentPolicies();
 		}else{
@@ -99,13 +106,20 @@ public class BestResponseToDistributionAgent extends Agent {
 
 	}
 
-	public BestResponseToDistributionAgent(SGDomain domain, StateHashFactory hashFactory) {
+	public BestResponseToDistributionAgent(SGDomain domain, StateHashFactory hashFactory, double goalReward, boolean runValueItteration) {
 		this.hashFactory = hashFactory;
 		this.domain = domain;
+		this.goalReward = goalReward;
+		this.runValueIteration = runValueItteration;
 
 	}
 
-	public void setOtherAgentPolicyMap(Map<String, Map<Integer,Policy>> allOtherAgentPolicies, 
+	/**
+	 * Takes as input the maps we create and sets the maps for this agent
+	 * @param allOtherAgentPolicies
+	 * @param distributionOverAllOtherAgentPolicies
+	 */
+	public void setOtherAgentPolicyMaps(Map<String, Map<Integer,Policy>> allOtherAgentPolicies, 
 			Map<String, Map<Integer,Double>> distributionOverAllOtherAgentPolicies){
 
 		this.allOtherAgentPolicies = allOtherAgentPolicies;
@@ -120,10 +134,9 @@ public class BestResponseToDistributionAgent extends Agent {
 	}
 
 
-	/*
-	 * this picks based on the distribution
+	/**
+	 * This picks an agent based on the distribution
 	 * 
-	 * TODO: combine the policies based on the distribution
 	 */
 	private Map<String, Policy> chooseOtherAgentPolicies() {
 		Random rand = new Random();
@@ -145,11 +158,11 @@ public class BestResponseToDistributionAgent extends Agent {
 		}
 		return policyMap;
 	}
-	/*
+	
+	/**
 	 * this combines the policies into one per 
 	 * other agent based on the distribution
 	 * 
-	 * TODO: combine the policies based on the distribution
 	 */
 	private Map<String, Policy> constructOtherAgentPolicies() {
 
@@ -191,20 +204,14 @@ public class BestResponseToDistributionAgent extends Agent {
 
 			singleAgentDomain = (SADomain) generator.generateDomain();
 
-			//List<TransitionProbability> tps = singleAgentDomain.getAction(GridGame.ACTIONNORTH).getTransitions(s, "");
-
-			//System.out.println("Size tps: "+tps.size());
-
-			//System.exit(0);
-
 			RewardFunction rf = new JointRewardFunctionWrapper(world.getRewardModel(), getAgentName(), domain, 
 					otherAgentPolicies, world.getActionModel(), domain.getSingleActions());
 
-			if(run_value_itteration){
+			if(runValueIteration){
 				policy = valueIteration("/Users/betsy/research/cognitive_hierarchy/testOut.txt", rf, singleAgentDomain);
 			}else{
 
-				policy = boundedRTDP(singleAgentDomain, domain, this.getAgentName(),rf,.99);
+				policy = boundedRTDP(singleAgentDomain, domain, this.getAgentName(),rf,.99, goalReward);
 			}
 			//reset isFirstDay
 			isFirstDay = false;
@@ -252,11 +259,11 @@ public class BestResponseToDistributionAgent extends Agent {
 
 	}
 
-	public Policy boundedRTDP(Domain saDomain, Domain ggDomain, String agentName, RewardFunction rf, double gamma){
+	public Policy boundedRTDP(Domain saDomain, Domain ggDomain, String agentName, RewardFunction rf, double gamma, double goalReward){
 		ValueFunctionInitialization lowerVInit = new ValueFunctionInitialization.ConstantValueFunctionInitialization(-1.0/(1.0-gamma));
-		ValueFunctionInitialization upperVInit = new MinDistValueFunctionInitialization(ggDomain, agentName);
-		double maxDiff = 100;
-		int maxRollouts = 500;
+		ValueFunctionInitialization upperVInit = new MinDistValueFunctionInitialization(ggDomain, agentName, goalReward);
+		double maxDiff = 100; //what should this be set to???
+		int maxRollouts = 500; //what should this be set to???
 
 		planner = new BoundedRTDP(saDomain, rf, world.getTF(), gamma, 
 				hashFactory, lowerVInit, upperVInit, maxDiff, maxRollouts);
@@ -277,6 +284,7 @@ public class BestResponseToDistributionAgent extends Agent {
 
 		if(planner == null){
 			System.out.println("creating planner");
+			//should these parameters be pulled out?
 			planner = new ValueIteration(saDomain, rf, world.getTF(), 0.99, hashFactory, 0.001,1000000);
 		}
 
@@ -292,11 +300,10 @@ public class BestResponseToDistributionAgent extends Agent {
 		//System.out.println("Before eval");
 		//System.out.println(p.evaluateBehavior(world.getCurrentWorldState(), rf, world.getTF(), 100).getActionSequenceString("\n")); //writeToFile(outputPath + "planResult", gwsp);
 
-		System.out.println("P returning");
-
 		return p;
 	}
 
+	//this is an old method used before Experiment Runner was created.
 	public static void main(String[] args){
 		GridGame gg = new GridGame();
 
@@ -309,9 +316,7 @@ public class BestResponseToDistributionAgent extends Agent {
 		Map<String,Map<Integer, Policy>> brAgentPolicies = new HashMap<String,Map<Integer, Policy>>();
 		boolean OTHERFIRST = false; //true;
 
-		//for(int anum=0;anum<=1;anum++){
-
-
+	
 		for(int k = 0;k<=1;k++){
 			System.out.println("LEVEL: "+k);
 
@@ -335,7 +340,7 @@ public class BestResponseToDistributionAgent extends Agent {
 
 
 			StateHashFactory hashFactory = new DiscreteStateHashFactory();
-			BestResponseToDistributionAgent brAgent = new BestResponseToDistributionAgent(d, hashFactory);
+			BestResponseToDistributionAgent brAgent = new BestResponseToDistributionAgent(d, hashFactory, 100, true);
 
 			if(OTHERFIRST){
 				//oponent.joinWorld(gameWorld, oponent.getAgentType());
@@ -376,7 +381,7 @@ public class BestResponseToDistributionAgent extends Agent {
 			distribution.put(k, 1.0);
 			distributionOverAllOtherAgentPolicies.put(oponent.getAgentName(),distribution);
 
-			brAgent.setOtherAgentPolicyMap(allOtherAgentPolicies, distributionOverAllOtherAgentPolicies);
+			brAgent.setOtherAgentPolicyMaps(allOtherAgentPolicies, distributionOverAllOtherAgentPolicies);
 
 			//gameWorld.addWorldObserver(ob);
 			System.out.println("running game");
